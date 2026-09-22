@@ -14,11 +14,13 @@ def get_activity_data(client, date_str):
     # Day-level stats (steps, resting HR, body battery, stress) are fetched
     # every day regardless of whether a workout was logged, so rest days
     # still get a row instead of being skipped entirely.
-    steps_data = client.get_steps_data(date_str)
+    # get_stats() is the daily summary and has totalSteps; get_steps_data()
+    # is the intraday steps chart (per-interval, no daily total) so it's
+    # not usable here.
     stats = client.get_stats(date_str) or {}
     stress = client.get_stress_data(date_str) or {}
     day_metrics = {
-        "steps": steps_data[0].get("totalSteps") if steps_data else None,
+        "steps": stats.get("totalSteps"),
         "resting_hr": stats.get("restingHeartRate"),
         "body_battery": stats.get("bodyBatteryMostRecentValue"),
         "stress": stress.get("avgStressLevel"),
