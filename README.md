@@ -2,15 +2,18 @@
 
 My personal assistant that runs daily tasks.
 
-Currently syncs Garmin Connect workout data into a Notion database, so each
-day's activity shows up as a row without manual entry.
+Currently syncs Garmin Connect workout and daily wellness data into a
+Notion database, so each day shows up as a row without manual entry — rest
+days included.
 
 ## What's here
 
-- `scripts/garmin_workout_sync.py` — fetches **today's** Garmin activity and
-  pushes it to Notion.
+- `scripts/garmin_workout_sync.py` — fetches **today's** Garmin data (the
+  day's activity, if any, plus steps/resting HR/body battery/stress) and
+  pushes it to Notion. On days with no logged workout, the row is marked
+  `Rest` but still carries the day-level metrics.
 - `scripts/garmin_backfill_30days.py` — walks the **last 30 days** and pushes
-  any Garmin activity found for each day to Notion. Reuses the mapping/push
+  one row per day to Notion, same logic as above. Reuses the fetch/push
   logic from `garmin_workout_sync.py`.
 - `.github/workflows/garmin-workout-sync.yml` — runs the daily sync
   automatically every night (cron) and supports manual runs.
@@ -46,7 +49,8 @@ cp .env.example .env
 Both scripts write to a hardcoded Notion data source ID
 (`WORKOUTS_DB_ID` in `scripts/garmin_workout_sync.py`) with these properties:
 `Session` (title), `Date`, `Activity Type` (select), `Duration (min)`,
-`Calories`, `Avg HR`, `Max HR`, `Training Load`, `Steps`.
+`Calories`, `Avg HR`, `Max HR`, `Training Load`, `Steps`, `Distance (km)`,
+`Elevation Gain (m)`, `Resting HR`, `Body Battery`, `Stress`.
 
 ## Running locally
 

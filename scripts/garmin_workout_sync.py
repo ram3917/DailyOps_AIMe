@@ -6,28 +6,66 @@ import requests
 NOTION_TOKEN = os.environ["NOTION_TOKEN"]
 WORKOUTS_DB_ID = "ef08f42b-275d-4d44-89ac-9302d40cb184"  # Workouts data source ID
 
-def get_today_activity():
-    client = Garmin(os.environ["GARMIN_EMAIL"], os.environ["GARMIN_PASSWORD"])
-    client.login()
-    today = datetime.date.today().isoformat()
-    activities = client.get_activities_by_date(today, today)
-    if not activities:
-        return None
+def get_activity_data(client, date_str):
+    activities = client.get_activities_by_date(date_str, date_str)
     # Take the primary activity of the day; adjust if you log multiple
-    a = activities[0]
+    a = activities[0] if activities else None
+
+    # Day-level stats (steps, resting HR, body battery, stress) are fetched
+    # every day regardless of whether a workout was logged, so rest days
+    # still get a row instead of being skipped entirely.
+    steps_data = client.get_steps_data(date_str)
+    stats = client.get_stats(date_str) or {}
+    stress = client.get_stress_data(date_str) or {}
+    day_metrics = {
+        "steps": steps_data[0].get("totalSteps") if steps_data else None,
+        "resting_hr": stats.get("restingHeartRate"),
+        "body_battery": stats.get("bodyBatteryMostRecentValue"),
+        "stress": stress.get("avgStressLevel"),
+    }
+
+    if a is None:
+        return {
+            "date": date_str,
+            "activity_type": "rest",
+            "duration_min": 0,
+            "calories": None,
+            "avg_hr": None,
+            "max_hr": None,
+            "training_load": None,
+            "distance_km": None,
+            "elevation_gain_m": None,
+            **day_metrics,
+        }
+
+    distance = a.get("distance")
     return {
-        "date": today,
+        "date": date_str,
         "activity_type": a.get("activityType", {}).get("typeKey", "Other"),
         "duration_min": round(a.get("duration", 0) / 60, 1),
         "calories": a.get("calories"),
         "avg_hr": a.get("averageHR"),
         "max_hr": a.get("maxHR"),
         "training_load": a.get("activityTrainingLoad"),
-        "steps": client.get_steps_data(today)[0].get("totalSteps") if client.get_steps_data(today) else None,
+        "distance_km": round(distance / 1000, 2) if distance else None,
+        "elevation_gain_m": a.get("elevationGain"),
+        **day_metrics,
     }
 
+
+def get_today_activity():
+    client = Garmin(os.environ["GARMIN_EMAIL"], os.environ["GARMIN_PASSWORD"])
+    client.login()
+    today = datetime.date.today().isoformat()
+    return get_activity_data(client, today)
+
 def map_activity_type(garmin_type):
-    mapping = {"strength_training": "Strength", "running": "Cardio", "cycling": "Cardio"}
+    mapping = {
+        "strength_training": "Strength",
+        "running": "Cardio",
+        "cycling": "Cardio",
+        "rest": "Rest",
+    }
     return mapping.get(garmin_type, "Mixed")
 
 def push_to_notion(data):
@@ -49,14 +87,15 @@ def push_to_notion(data):
             "Max HR": {"number": data["max_hr"]},
             "Training Load": {"number": data["training_load"]},
             "Steps": {"number": data["steps"]},
+            "Distance (km)": {"number": data["distance_km"]},
+            "Elevation Gain (m)": {"number": data["elevation_gain_m"]},
+            "Resting HR": {"number": data["resting_hr"]},
+            "Body Battery": {"number": data["body_battery"]},
+            "Stress": {"number": data["stress"]},
         },
     }
     r = requests.post(url, headers=headers, json=payload, timeout=30)
     r.raise_for_status()
 
 if __name__ == "__main__":
-    data = get_today_activity()
-    if data:
-        push_to_notion(data)
-    else:
-        print("No Garmin activity found for today — skipping Notion write.")
+    push_to_notion(get_today_activity())
