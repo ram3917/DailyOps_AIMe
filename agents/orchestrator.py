@@ -36,7 +36,7 @@ class Orchestrator:
         return None
 
     def route_message(self, text: str) -> tuple[str | None, str]:
-        """Classify the target agent for an incoming Slack message and
+        """Classify the target agent for an incoming chat message and
         dispatch to it. Returns (agent_name_or_None, reply_text)."""
         target = self._classify(text)
         if target is None:

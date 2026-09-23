@@ -2,5 +2,4 @@ requests
 garminconnect
 anthropic
 pyyaml
-slack-bolt
 flask

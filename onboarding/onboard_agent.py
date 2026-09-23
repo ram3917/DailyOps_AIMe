@@ -2,9 +2,9 @@
 
 CLI-driven for this milestone (run: python onboarding/onboard_agent.py
 personal_trainer). run_onboarding() takes an injectable ask_fn so the same
-flow can later be driven by a Slack conversation instead of input() -
-that's the extension point; a real multi-turn Slack onboarding UI is out
-of scope for this milestone.
+flow can later be driven by a Telegram conversation instead of input() -
+that's the extension point; a real multi-turn Telegram onboarding UI is
+out of scope for this milestone.
 
 Output:
 - Updates registry/<agent>.yaml (currently just `backend`; the rest of an

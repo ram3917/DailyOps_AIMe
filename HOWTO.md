@@ -1,8 +1,8 @@
 # HowTo: setting up RAMA (Orchestrator + Personal Trainer)
 
 Step-by-step guide to get the Garmin→Notion sync and the
-Orchestrator/Personal Trainer Slack agent running from scratch. For what
-each piece does and the file layout, see [README.md](README.md).
+Orchestrator/Personal Trainer Telegram agent running from scratch. For
+what each piece does and the file layout, see [README.md](README.md).
 
 ## 0. Prerequisites
 
@@ -10,7 +10,7 @@ each piece does and the file layout, see [README.md](README.md).
 - A Garmin Connect account
 - A Notion workspace with the **Daily Ops** page (Workouts + Daily Log
   databases already exist there)
-- A Slack workspace where you can install apps
+- A Telegram account
 - An Anthropic API key ([console.anthropic.com](https://console.anthropic.com))
 
 ## 1. Clone and install
@@ -44,29 +44,21 @@ needed — `garminconnect` logs in as you.
 Create a key at [console.anthropic.com](https://console.anthropic.com) →
 **API Keys**. This is `ANTHROPIC_API_KEY`.
 
-### Slack (Socket Mode — no public URL needed)
+### Telegram (long polling — no public URL needed)
 
-1. Go to [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From scratch**. Name it, pick your workspace.
-2. **Socket Mode** (left sidebar) → toggle **Enable Socket Mode** on. This
-   prompts you to generate an app-level token — name it anything, scope
-   `connections:write`. Copy the token (`xapp-...`) — this is `SLACK_APP_TOKEN`.
-3. **OAuth & Permissions** → under **Scopes → Bot Token Scopes**, add:
-   - `chat:write` (send messages)
-   - `im:history` (read DMs sent to the bot)
-   - `channels:history` (read messages in channels it's in, for the
-     `#`-channel case)
-   - `message.im` isn't a scope you add here — see Event Subscriptions below.
-4. **Event Subscriptions** → toggle on. Under **Subscribe to bot events**,
-   add `message.im` (DMs) and, if you want to talk to it in a channel,
-   `message.channels`. Save.
-5. Back at the top of **OAuth & Permissions**, click **Install to
-   Workspace**, approve. Copy the **Bot User OAuth Token** (`xoxb-...`) —
-   this is `SLACK_BOT_TOKEN`.
-6. Invite the bot to a DM (just message it directly) or `/invite @YourApp`
-   into a channel.
-7. (Optional, for proactive morning check-ins) Get the channel ID you want
-   check-ins posted to: open the channel in Slack → `•••` → **View channel
-   details** → ID is at the bottom. This is `SLACK_CHECKIN_CHANNEL`.
+1. In Telegram, message [@BotFather](https://t.me/BotFather) → `/newbot`.
+   Follow the prompts (display name, then a unique `@username` ending in
+   `bot`).
+2. BotFather replies with an API token like `123456789:AAExampleToken...`
+   — this is `TELEGRAM_BOT_TOKEN`.
+3. Open a chat with your new bot (search its `@username`) and send it any
+   message — Telegram only delivers messages to the bot for chats that
+   messaged it first.
+4. (Optional, for proactive morning check-ins) Get the chat ID to post
+   check-ins to. Easiest way: send your bot a message, then visit
+   `https://api.telegram.org/bot<TOKEN>/getUpdates` in a browser (with
+   your real token) and read `message.chat.id` from the JSON response.
+   This is `TELEGRAM_CHECKIN_CHAT_ID`.
 
 ## 3. Fill in `.env`
 
@@ -81,16 +73,15 @@ GARMIN_EMAIL=you@example.com
 GARMIN_PASSWORD=your-garmin-password
 NOTION_TOKEN=secret_...
 ANTHROPIC_API_KEY=sk-ant-...
-SLACK_BOT_TOKEN=xoxb-...
-SLACK_APP_TOKEN=xapp-...
-SLACK_CHECKIN_CHANNEL=C0000000000
+TELEGRAM_BOT_TOKEN=123456789:AAExampleToken...
+TELEGRAM_CHECKIN_CHAT_ID=000000000
 ```
 
 `.env` is git-ignored — never commit it.
 
 For the GitHub Actions Garmin sync/backfill workflows (separate from the
-Slack agent), add `GARMIN_EMAIL`, `GARMIN_PASSWORD`, and `NOTION_TOKEN` as
-**repository secrets** too (Settings → Secrets and variables → Actions).
+Telegram agent), add `GARMIN_EMAIL`, `GARMIN_PASSWORD`, and `NOTION_TOKEN`
+as **repository secrets** too (Settings → Secrets and variables → Actions).
 
 ## 4. Load the env vars into your shell
 
@@ -111,14 +102,14 @@ target, injuries/limits, preferred workouts, morning check-in time). This
 writes `registry/personal_trainer.yaml` and creates
 `memory/personal_trainer.db`.
 
-## 6. Run the Slack app
+## 6. Run the Telegram app
 
 ```bash
-python interfaces/slack_app.py
+python interfaces/telegram_app.py
 ```
 
-Leave this running (it's a long-lived Socket Mode connection — no ports
-exposed, no public URL). DM the bot or mention it in a channel it's in:
+Leave this running (it's a long-polling client against Telegram's HTTP
+Bot API — no ports exposed, no public URL). Message the bot:
 
 - "what were my steps yesterday"
 - "how was my sleep last night"
@@ -128,9 +119,10 @@ exposed, no public URL). DM the bot or mention it in a channel it's in:
   using your onboarding profile
 - Anything unrelated gets "I don't have an agent set up for that yet."
 
-At the `morning_checkin_time` you gave during onboarding, it'll post the
-weight prompt + sleep feedback + steps progress to `SLACK_CHECKIN_CHANNEL`
-automatically (checked once a minute; the process must be running).
+At the `morning_checkin_time` you gave during onboarding, it'll send the
+weight prompt + sleep feedback + steps progress to
+`TELEGRAM_CHECKIN_CHAT_ID` automatically (checked once a minute; the
+process must be running).
 
 ## 7. (Optional) Run the Garmin sync scripts manually
 
@@ -158,7 +150,8 @@ profiles. Localhost only, by design.
 | --- | --- |
 | Notion calls return 404 | The integration isn't connected to the Daily Ops page — redo step 2's Notion §3. |
 | `GarminConnectAuthenticationError` | Wrong/missing `GARMIN_EMAIL`/`GARMIN_PASSWORD`, or env vars weren't exported into the shell running the script. |
-| Slack bot never responds | Socket Mode not enabled, or the bot isn't in the channel/DM, or `message.im`/`message.channels` events weren't subscribed. |
+| Telegram bot never responds | You haven't messaged the bot first (Telegram won't deliver updates otherwise), `TELEGRAM_BOT_TOKEN` is wrong, or `interfaces/telegram_app.py` isn't running. |
+| `RuntimeError: Telegram API error` | Check the token is correct and the bot hasn't been blocked/deleted; the error message includes Telegram's own response body. |
 | `NotImplementedError` from the agent | Registry `backend` is set to `local_model` but no local runtime is wired up — set it back to `claude_api` (re-run onboarding, choice `1`). |
-| Morning check-in never fires | `interfaces/slack_app.py` isn't running continuously, or `morning_checkin_time` in the profile doesn't match `HH:MM` 24h format. |
+| Morning check-in never fires | `interfaces/telegram_app.py` isn't running continuously, or `morning_checkin_time` in the profile doesn't match `HH:MM` 24h format. |
 | `pytest` fails on `test_memory_isolation` | An agent module is calling `open_agent_db()` with something other than a literal string or its own `AGENT_NAME` constant — see the assertion message for the offending file. |
