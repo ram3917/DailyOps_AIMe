@@ -2,6 +2,10 @@
 
 My personal multi-agent assistant.
 
+**New to this repo?** See [HOWTO.md](HOWTO.md) for a step-by-step setup
+guide (Garmin, Notion, Anthropic, and Slack credentials, onboarding, and
+running everything). The sections below are reference, not a walkthrough.
+
 Currently syncs Garmin Connect workout and daily wellness data into a
 Notion database, so each day shows up as a row without manual entry — rest
 days included.
