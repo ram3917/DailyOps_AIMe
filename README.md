@@ -1,6 +1,10 @@
-# DailyOps AIMe
+# DailyOps AIMe (RAMA)
 
-My personal assistant that runs daily tasks.
+My personal multi-agent assistant.
+
+**New to this repo?** See [HOWTO.md](HOWTO.md) for a step-by-step setup
+guide (Garmin, Notion, Anthropic, and Slack credentials, onboarding, and
+running everything). The sections below are reference, not a walkthrough.
 
 Currently syncs Garmin Connect workout and daily wellness data into a
 Notion database, so each day shows up as a row without manual entry — rest
@@ -68,3 +72,86 @@ python scripts/garmin_backfill_30days.py    # last 30 days
   triggered manually from the Actions tab.
 - **Garmin 30-Day Backfill** only runs when triggered manually from the
   Actions tab (**Actions → Garmin 30-Day Backfill → Run workflow**).
+
+## Orchestrator + Personal Trainer agent
+
+RAMA's first multi-agent milestone: a generic orchestrator plus one
+concrete specialist agent (Personal Trainer), talking over Slack.
+
+```
+agents/orchestrator.py          # registry loading, routing, ask_agent(), checkins
+agents/personal_trainer/        # agent.py (behavior) + tools.py (Garmin/Notion I/O)
+onboarding/onboard_agent.py     # CLI interview -> registry.yaml + memory.db
+registry/personal_trainer.yaml  # this agent's full config (tools, routing, checkins)
+memory/                         # one SQLite file per agent (schema.sql is the shared shape)
+models/                         # router.py picks claude_backend.py or local_backend.py per agent
+interfaces/slack_app.py         # Bolt app, Socket Mode - the "always with me" surface
+interfaces/dashboard.py         # localhost-only read-only stub
+```
+
+**Access model:** Slack via Socket Mode (outbound-only websocket, no public
+endpoint). The dashboard binds to `127.0.0.1` only. No cloud hosting, no
+public URLs, anywhere in this milestone.
+
+**Memory isolation** is structural, not just convention: `memory/db.py`'s
+`open_agent_db()` is the only function that opens an agent's SQLite file,
+and `tests/test_memory_isolation.py` statically verifies every
+`agents/*/*.py` module only ever calls it with its own name. Cross-agent
+info requests go through `orchestrator.ask_agent(name, question)` only,
+which returns a natural-language answer from that agent's own memory —
+never raw rows, never write access.
+
+**Personal Trainer** reads Steps/Sleep/Weight from the Notion **Daily
+Log** database (not its own copy) and writes new weigh-ins there too. When
+those fields are missing or stale, it calls `fetch_garmin_data`, which
+invokes the existing `scripts/garmin_workout_sync.py` as a subprocess
+(unmodified) and separately upserts steps/sleep into Daily Log via a
+direct Garmin fetch. Its own `memory/personal_trainer.db` holds only what
+Notion doesn't: injury history, preferred workout types, morning check-in
+time, and qualitative notes.
+
+### Setup
+
+```bash
+pip install -r requirements.txt
+```
+
+Additional secrets beyond the Garmin/Notion ones above, via `.env`:
+
+| Variable               | Description                                    |
+| ----------------------- | ----------------------------------------------- |
+| `SLACK_BOT_TOKEN`        | `xoxb-...`                                       |
+| `SLACK_APP_TOKEN`        | `xapp-...`, Socket Mode app-level token          |
+| `SLACK_CHECKIN_CHANNEL`  | Channel ID for proactive morning check-ins (optional) |
+| `ANTHROPIC_API_KEY`      | Claude API key (used when an agent's `backend: claude_api`) |
+| `RAMA_CLAUDE_MODEL`      | Override the default model (`claude-opus-5`), optional |
+
+See `config/settings.example.yaml` for the same list with context.
+
+### Onboarding
+
+```bash
+python onboarding/onboard_agent.py personal_trainer
+```
+
+Runs the scope interview (goal, tone, backend) and context interview
+(step goal, sleep target, injuries/limits, preferred workouts, morning
+check-in time), then writes `registry/personal_trainer.yaml` and seeds
+`memory/personal_trainer.db`.
+
+### Running
+
+```bash
+python interfaces/slack_app.py
+```
+
+Ask it things like "how was my sleep last night" or "what were my steps
+yesterday" in a channel/DM the bot is in, or wait for the morning
+check-in at the onboarded `morning_checkin_time`.
+
+### Non-goals for this milestone
+
+No other agents (Dietician, Finance, ...), no public/cloud hosting, no
+multi-agent parallel dispatch, and the local-model backend
+(`models/local_backend.py`) is a stub — every agent defaults to
+`backend: claude_api` until a local runtime is wired up.

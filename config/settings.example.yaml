@@ -1,0 +1,21 @@
+# Reference only - the actual code reads credentials from environment
+# variables / a local .env (see .env.example at the repo root), matching
+# the rest of this repo's scripts. Copy this file's shape into your .env
+# as UPPER_SNAKE_CASE vars; nothing in this repo loads settings.yaml at
+# runtime. Never commit real values.
+
+slack:
+  bot_token: xoxb-REPLACE_ME       # SLACK_BOT_TOKEN
+  app_token: xapp-REPLACE_ME       # SLACK_APP_TOKEN (Socket Mode app-level token)
+  checkin_channel: C0000000000     # SLACK_CHECKIN_CHANNEL - channel ID for proactive morning check-ins
+
+anthropic:
+  api_key: sk-ant-REPLACE_ME       # ANTHROPIC_API_KEY
+  model: claude-opus-5             # RAMA_CLAUDE_MODEL (optional override)
+
+garmin:
+  email: REPLACE_ME                # GARMIN_EMAIL
+  password: REPLACE_ME             # GARMIN_PASSWORD
+
+notion:
+  token: secret_REPLACE_ME         # NOTION_TOKEN
