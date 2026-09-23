@@ -4,10 +4,9 @@
 # as UPPER_SNAKE_CASE vars; nothing in this repo loads settings.yaml at
 # runtime. Never commit real values.
 
-slack:
-  bot_token: xoxb-REPLACE_ME       # SLACK_BOT_TOKEN
-  app_token: xapp-REPLACE_ME       # SLACK_APP_TOKEN (Socket Mode app-level token)
-  checkin_channel: C0000000000     # SLACK_CHECKIN_CHANNEL - channel ID for proactive morning check-ins
+telegram:
+  bot_token: 123456:REPLACE_ME       # TELEGRAM_BOT_TOKEN - from @BotFather
+  checkin_chat_id: 000000000         # TELEGRAM_CHECKIN_CHAT_ID - chat ID for proactive morning check-ins
 
 anthropic:
   api_key: sk-ant-REPLACE_ME       # ANTHROPIC_API_KEY

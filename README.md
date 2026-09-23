@@ -3,8 +3,9 @@
 My personal multi-agent assistant.
 
 **New to this repo?** See [HOWTO.md](HOWTO.md) for a step-by-step setup
-guide (Garmin, Notion, Anthropic, and Slack credentials, onboarding, and
-running everything). The sections below are reference, not a walkthrough.
+guide (Garmin, Notion, Anthropic, and Telegram credentials, onboarding,
+and running everything). The sections below are reference, not a
+walkthrough.
 
 Currently syncs Garmin Connect workout and daily wellness data into a
 Notion database, so each day shows up as a row without manual entry — rest
@@ -76,7 +77,7 @@ python scripts/garmin_backfill_30days.py    # last 30 days
 ## Orchestrator + Personal Trainer agent
 
 RAMA's first multi-agent milestone: a generic orchestrator plus one
-concrete specialist agent (Personal Trainer), talking over Slack.
+concrete specialist agent (Personal Trainer), talking over Telegram.
 
 ```
 agents/orchestrator.py          # registry loading, routing, ask_agent(), checkins
@@ -85,13 +86,14 @@ onboarding/onboard_agent.py     # CLI interview -> registry.yaml + memory.db
 registry/personal_trainer.yaml  # this agent's full config (tools, routing, checkins)
 memory/                         # one SQLite file per agent (schema.sql is the shared shape)
 models/                         # router.py picks claude_backend.py or local_backend.py per agent
-interfaces/slack_app.py         # Bolt app, Socket Mode - the "always with me" surface
+interfaces/telegram_app.py      # long-polling Bot API client - the "always with me" surface
 interfaces/dashboard.py         # localhost-only read-only stub
 ```
 
-**Access model:** Slack via Socket Mode (outbound-only websocket, no public
-endpoint). The dashboard binds to `127.0.0.1` only. No cloud hosting, no
-public URLs, anywhere in this milestone.
+**Access model:** Telegram via long polling over its HTTP Bot API
+(outbound-only, no public endpoint, no exposed ports). The dashboard binds
+to `127.0.0.1` only. No cloud hosting, no public URLs, anywhere in this
+milestone.
 
 **Memory isolation** is structural, not just convention: `memory/db.py`'s
 `open_agent_db()` is the only function that opens an agent's SQLite file,
@@ -118,13 +120,12 @@ pip install -r requirements.txt
 
 Additional secrets beyond the Garmin/Notion ones above, via `.env`:
 
-| Variable               | Description                                    |
-| ----------------------- | ----------------------------------------------- |
-| `SLACK_BOT_TOKEN`        | `xoxb-...`                                       |
-| `SLACK_APP_TOKEN`        | `xapp-...`, Socket Mode app-level token          |
-| `SLACK_CHECKIN_CHANNEL`  | Channel ID for proactive morning check-ins (optional) |
-| `ANTHROPIC_API_KEY`      | Claude API key (used when an agent's `backend: claude_api`) |
-| `RAMA_CLAUDE_MODEL`      | Override the default model (`claude-opus-5`), optional |
+| Variable                    | Description                                    |
+| ---------------------------- | ----------------------------------------------- |
+| `TELEGRAM_BOT_TOKEN`          | From @BotFather, e.g. `123456:ABC-DEF...`        |
+| `TELEGRAM_CHECKIN_CHAT_ID`    | Chat ID for proactive morning check-ins (optional) |
+| `ANTHROPIC_API_KEY`           | Claude API key (used when an agent's `backend: claude_api`) |
+| `RAMA_CLAUDE_MODEL`           | Override the default model (`claude-opus-5`), optional |
 
 See `config/settings.example.yaml` for the same list with context.
 
@@ -142,12 +143,12 @@ check-in time), then writes `registry/personal_trainer.yaml` and seeds
 ### Running
 
 ```bash
-python interfaces/slack_app.py
+python interfaces/telegram_app.py
 ```
 
 Ask it things like "how was my sleep last night" or "what were my steps
-yesterday" in a channel/DM the bot is in, or wait for the morning
-check-in at the onboarded `morning_checkin_time`.
+yesterday" in a chat with the bot, or wait for the morning check-in at the
+onboarded `morning_checkin_time`.
 
 ### Non-goals for this milestone
 
