@@ -1,5 +1,4 @@
 requests
 garminconnect
-anthropic
-pyyaml
-flask
+ollama
+huggingface_hub

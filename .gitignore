@@ -1,6 +1,4 @@
 .env
 __pycache__/
 *.pyc
-memory/*.db
-config/settings.yaml
-.pytest_cache/
+trainer.db
